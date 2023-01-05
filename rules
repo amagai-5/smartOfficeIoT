@@ -1,0 +1,8 @@
+Rule:
+  Forall ?sensor, ?reading
+  If { ?sensor a ex:TemperatureSensor }
+  And { ?reading a ex:TemperatureReading }
+  And { ?sensor ex:hasReading ?reading }
+  And { ?reading ex:hasValue ?value }
+  And { ?value > ex:threshold }
+  Then { ?sensor ex:triggersAlarm "high temperature" }

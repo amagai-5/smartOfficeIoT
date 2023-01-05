@@ -1,0 +1,152 @@
+@prefix data:  <http://example.org/data/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix wd:    <https://www.wikidata.org/wiki/> .
+@prefix sosa:  <http://www.w3.org/ns/sosa/> .
+@prefix ssn:   <http://www.w3.org/ns/ssn/> .
+
+<http://example.org/data/Observation/co2/1>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "1089.70" ;
+        sosa:observedProperty      wd:Q1997 ;
+        sosa:resultTime            "2022-12-07_152509" .
+
+<http://example.org/data/Observation/temperature/1>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "19.79" ;
+        sosa:observedProperty      wd:Q11466 ;
+        sosa:resultTime            "2022-12-07_152509" .
+
+<http://example.org/data/Observation/power/2>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "526.23" ;
+        sosa:observedProperty      wd:Q27137 ;
+        sosa:resultTime            "2022-12-07_152514" .
+
+<http://example.org/data/Observation/humidity/3>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "49.30" ;
+        sosa:observedProperty      wd:Q180600 ;
+        sosa:resultTime            "2022-12-07_152519" .
+
+<http://example.org/data/Observation/co2/0>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "1107.52" ;
+        sosa:observedProperty      wd:Q1997 ;
+        sosa:resultTime            "2022-12-07_152508" .
+
+<http://example.org/data/Observation/temperature/0>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "19.72" ;
+        sosa:observedProperty      wd:Q11466 ;
+        sosa:resultTime            "2022-12-07_152508" .
+
+<http://example.org/data/Observation/humidity/2>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "49.34" ;
+        sosa:observedProperty      wd:Q180600 ;
+        sosa:resultTime            "2022-12-07_152514" .
+
+<http://example.org/data/Observation/power/1>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "519.26" ;
+        sosa:observedProperty      wd:Q27137 ;
+        sosa:resultTime            "2022-12-07_152509" .
+
+<http://example.org/data/Observation/power/0>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "527.98" ;
+        sosa:observedProperty      wd:Q27137 ;
+        sosa:resultTime            "2022-12-07_152508" .
+
+<http://example.org/data/Observation/humidity/1>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "49.45" ;
+        sosa:observedProperty      wd:Q180600 ;
+        sosa:resultTime            "2022-12-07_152509" .
+
+<http://example.org/data/Observation/co2/4>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "1054.35" ;
+        sosa:observedProperty      wd:Q1997 ;
+        sosa:resultTime            "2022-12-07_152525" .
+
+<http://example.org/data/Observation/temperature/4>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "19.90" ;
+        sosa:observedProperty      wd:Q11466 ;
+        sosa:resultTime            "2022-12-07_152525" .
+
+<http://example.org/data/Observation/humidity/0>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "49.61" ;
+        sosa:observedProperty      wd:Q180600 ;
+        sosa:resultTime            "2022-12-07_152508" .
+
+data:CurrentObservation
+        a       <http://example.org/data/Observation/power/4> , <http://example.org/data/Observation/co2/4> , <http://example.org/data/Observation/temperature/4> , <http://example.org/data/Observation/humidity/4> .
+
+<http://example.org/data/Observation/co2/3>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "1057.28" ;
+        sosa:observedProperty      wd:Q1997 ;
+        sosa:resultTime            "2022-12-07_152519" .
+
+<http://example.org/data/Observation/temperature/3>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "19.87" ;
+        sosa:observedProperty      wd:Q11466 ;
+        sosa:resultTime            "2022-12-07_152519" .
+
+<http://example.org/data/Observation/power/4>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "530.77" ;
+        sosa:observedProperty      wd:Q27137 ;
+        sosa:resultTime            "2022-12-07_152525" .
+
+<http://example.org/data/Observation/co2/2>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "1073.46" ;
+        sosa:observedProperty      wd:Q1997 ;
+        sosa:resultTime            "2022-12-07_152514" .
+
+<http://example.org/data/Observation/temperature/2>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "19.82" ;
+        sosa:observedProperty      wd:Q11466 ;
+        sosa:resultTime            "2022-12-07_152514" .
+
+<http://example.org/data/Observation/power/3>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "520.56" ;
+        sosa:observedProperty      wd:Q27137 ;
+        sosa:resultTime            "2022-12-07_152519" .
+
+<http://example.org/data/Observation/humidity/4>
+        a                          ssn:Observation ;
+        sosa:hasFeatureOfInterest  data:RoomE208 ;
+        sosa:hasSimpleResult       "49.25" ;
+        sosa:observedProperty      wd:Q180600 ;
+        sosa:resultTime            "2022-12-07_152525" .
+
+data:threshold a data:TemperatureThreshold;
+    data:hasValue "30".
+
