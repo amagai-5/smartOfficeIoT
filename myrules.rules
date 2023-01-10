@@ -1,0 +1,14 @@
+@prefix ssn: <http://www.w3.org/ns/ssn/> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+
+[ruleIsAboveTempThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) greaterThan(?v, 28) -> (sosa:fan sosa:activates sosa:ON)]
+
+[ruleIsBelowTempThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) lessThan(?v, 18) -> (sosa:stove sosa:activates sosa:ON)]
+
+[ruleIsAboveCo2Threshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q1997>) greaterThan(?v, 1000) -> (sosa:window sosa:is sosa:ON)]
+
+[ruleIsAboveHumThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) greaterThan(?v, 65) -> (sosa:humidifier sosa:activates sosa:OFF)]
+
+[ruleIsBelowHumThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) lessThan(?v, 45) -> (sosa:humidifier sosa:activates sosa:ON)]
+
+[ruleIsAbovePowThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q27137>) greaterThan(?v, 1000) -> (sosa:relay sosa:activates sosa:OFF)]

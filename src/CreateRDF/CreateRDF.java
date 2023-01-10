@@ -5,10 +5,14 @@ import java.io.FileOutputStream;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 
+import org.apache.jena.rdf.model.InfModel;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.reasoner.Reasoner;
+import org.apache.jena.reasoner.rulesys.GenericRuleReasoner;
+import org.apache.jena.reasoner.rulesys.Rule;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -158,8 +162,12 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	
 	createModel(array,i);
 	i++;
+	
+	m = inferModel(m);
+	
+	
 	try {	
-		FileOutputStream fout = new FileOutputStream("test.rdf");
+		FileOutputStream fout = new FileOutputStream("test.rdf"); // will be Changed to Notation 3 
 		m.write(fout,"TTL");
 	}
 	catch(FileNotFoundException e) {
@@ -174,11 +182,13 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	flagTem = false;
 	flagPow = false;
 	
-    MqttMessage message1 = new MqttMessage();
-    message1.setPayload(reasoning(results[1], results[2], results[3])
-            .getBytes());
-    client.publish(topicExample, message1);
-    System.out.println("pub");
+//    MqttMessage message1 = new MqttMessage();
+//    message1.setPayload(reasoning(results[1], results[2], results[3])
+//            .getBytes());
+//    client.publish(topicExample, message1);
+//    System.out.println("pub");
+	
+	
 }
 }
 @Override
@@ -258,9 +268,18 @@ public static String reasoning(double humidity, double co2, double temperature) 
 }
 
 
-public static String reasoningSparqle() {
+public static Model inferModel(Model m) {
+	Reasoner reasoner = new GenericRuleReasoner(Rule.rulesFromURL("C:\\Users\\heilab.DESKTOP-5C885MS\\eclipse-workspace2\\testReasoner\\src\\testReasoner\\myrules.rules"));
+    // Bind the reasoner to the model
+    InfModel infModel = ModelFactory.createInfModel(reasoner, m);
+    
+
+    
+    // Perform reasoning on the model
+    infModel.prepare();
+    infModel.write(System.out, "N3"); 
 	
-	return("COMFORTABLE");
+	return(infModel);
 	
 }
 }
