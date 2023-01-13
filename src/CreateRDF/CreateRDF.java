@@ -5,9 +5,17 @@ import java.io.FileOutputStream;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryExecutionFactory;
+import org.apache.jena.query.QueryFactory;
+import org.apache.jena.query.QuerySolution;
+import org.apache.jena.query.ResultSet;
 import org.apache.jena.rdf.model.InfModel;
+import org.apache.jena.rdf.model.Literal;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.NodeIterator;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.reasoner.Reasoner;
@@ -47,9 +55,9 @@ String sosa = "http://www.w3.org/ns/sosa/";
 String ssn = "http://www.w3.org/ns/ssn/";
 String rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 String data = "http://example.org/data/";
+String rdfs = "http://www.w3.org/2000/01/rdf-schema#";
 String roomStr = "RoomE208";
 
-	
 Model m = ModelFactory.createDefaultModel();//create RDF model
 	
 Property hosts = m.createProperty(sosa+"hosts");
@@ -60,6 +68,7 @@ Property madeBySensor = m.createProperty(sosa+"madeBySensor");
 Property resultTime = m.createProperty(sosa+"resultTime");
 Property type = m.createProperty(rdf+"type");
 Property hasValue = m.createProperty(rdf+"hasValue");
+Property comments = m.createProperty(rdfs + "comments");
 
 Resource ESP32 = m.createResource(wd+"Q27921668");
 Resource humidity = m.createResource(wd+"Q180600");
@@ -81,6 +90,7 @@ public CreateRDF() {
 	m.setNsPrefix("wd", wd);
 	m.setNsPrefix("data", data);
 	m.setNsPrefix("rdf", rdf);
+	m.setNsPrefix("rdfs", rdfs)
 }
 
 public static void main(String[] args) {
@@ -164,6 +174,16 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	i++;
 	
 	m = inferModel(m);
+	
+	NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
+	while(statusOfRoom.hasNext()){
+		String statusStr = statusOfRoom.toString();
+		
+	}
+	
+	
+	
+
 	
 	
 	try {	
@@ -282,4 +302,9 @@ public static Model inferModel(Model m) {
 	return(infModel);
 	
 }
+
+
+
+
+
 }
