@@ -17,6 +17,7 @@ import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.NodeIterator;
 import org.apache.jena.rdf.model.Property;
+import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.reasoner.Reasoner;
 import org.apache.jena.reasoner.rulesys.GenericRuleReasoner;
@@ -90,7 +91,7 @@ public CreateRDF() {
 	m.setNsPrefix("wd", wd);
 	m.setNsPrefix("data", data);
 	m.setNsPrefix("rdf", rdf);
-	m.setNsPrefix("rdfs", rdfs)
+	m.setNsPrefix("rdfs", rdfs);
 }
 
 public static void main(String[] args) {
@@ -107,6 +108,21 @@ public void doDemo() {
         client.subscribe(topicCo2);
         client.subscribe(topicTemp);
         client.subscribe(topicPower);
+    	NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
+    	while(statusOfRoom.hasNext()){
+    		
+    	    RDFNode object = statusOfRoom.next();
+    	    String statusStr = object.toString();
+    	    MqttMessage message = new MqttMessage();
+    	    message.setPayload(statusStr
+                  .getBytes());
+    	    client.publish(topicExample, message);
+    	    System.out.println("pub");
+    	    
+    		
+    	}
+               
+    	CurrentObservation.removeProperties();
 //        MqttMessage message = new MqttMessage();
 //        message.setPayload(reasoning(results[1], results[2], results[3])
 //                .getBytes());
@@ -170,16 +186,12 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	String time =getTimeStamp();
 	array[0] = time;
 	
-	createModel(array,i);
+	createModel(results,i);
 	i++;
 	
 	m = inferModel(m);
 	
-	NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
-	while(statusOfRoom.hasNext()){
-		String statusStr = statusOfRoom.toString();
-		
-	}
+
 	
 	
 	
@@ -216,7 +228,7 @@ public void deliveryComplete(IMqttDeliveryToken token) {
     // TODO Auto-generated method stub
 }
 
-public  void createModel(String[] results, int count) {
+public  void createModel(double[] results, int count) {
 	Resource obCo2 = m.createResource(data+"Observation/co2/"+String.valueOf(count));
 	Resource obTem = m.createResource(data+"Observation/temperature/"+String.valueOf(count));
 	Resource obHum = m.createResource(data+"Observation/humidity/"+String.valueOf(count));
@@ -226,15 +238,15 @@ public  void createModel(String[] results, int count) {
 	threshold.addProperty(type, TemperatureThreshold);
 	threshold.addProperty(hasValue, tempThreshold);
 	
-	obHum.addProperty(hasSimpleResult, results[1]);
-	obCo2.addProperty(hasSimpleResult, results[2]);
-	obTem.addProperty(hasSimpleResult, results[3]);
-	obPow.addProperty(hasSimpleResult, results[4]);
+	obHum.addLiteral(hasSimpleResult, results[1]);
+	obCo2.addLiteral(hasSimpleResult, results[2]);
+	obTem.addLiteral(hasSimpleResult, results[3]);
+	obPow.addLiteral(hasSimpleResult, results[4]);
 	
-	obHum.addProperty(resultTime, results[0]);
-	obCo2.addProperty(resultTime, results[0]);
-	obTem.addProperty(resultTime, results[0]);
-	obPow.addProperty(resultTime, results[0]);
+	obHum.addLiteral(resultTime, results[0]);
+	obCo2.addLiteral(resultTime, results[0]);
+	obTem.addLiteral(resultTime, results[0]);
+	obPow.addLiteral(resultTime, results[0]);
 	
 	obHum.addProperty(hasFeatureOfInterest, room);
 	obCo2.addProperty(hasFeatureOfInterest, room);
