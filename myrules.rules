@@ -1,14 +1,17 @@
 @prefix ssn: <http://www.w3.org/ns/ssn/> .
 @prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix data:  <http://example.org/data/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-[ruleIsAboveTempThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) greaterThan(?v, 28) -> (sosa:fan sosa:activates sosa:ON)]
+[ruleIsAboveTempThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) greaterThan(?v, 28) -> (data:RoomE208 rdfs:comments "Hot")]
 
-[ruleIsBelowTempThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) lessThan(?v, 18) -> (sosa:stove sosa:activates sosa:ON)]
+[ruleIsBelowTempThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) lessThan(?v, 18) -> (data:RoomE208 rdfs:comments "Cold")]
 
-[ruleIsAboveCo2Threshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q1997>) greaterThan(?v, 1000) -> (sosa:window sosa:is sosa:ON)]
+[ruleIsAboveCo2Threshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q1997>) greaterThan(?v, 1000) -> (data:RoomE208 rdfs:comments "Danger")]
 
-[ruleIsAboveHumThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) greaterThan(?v, 65) -> (sosa:humidifier sosa:activates sosa:OFF)]
+[ruleIsAboveHumThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) greaterThan(?v, 65) -> (data:RoomE208 rdfs:comments "Humid")]
 
-[ruleIsBelowHumThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) lessThan(?v, 45) -> (sosa:humidifier sosa:activates sosa:ON)]
+[ruleIsBelowHumThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) lessThan(?v, 45) -> (data:RoomE208 rdfs:comments "Dried")]
 
-[ruleIsAbovePowThreshold: (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q27137>) greaterThan(?v, 1000) -> (sosa:relay sosa:activates sosa:OFF)]
+[ruleIsAbovePowThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q27137>) greaterThan(?v, 1000) -> (data:RoomE208 rdfs:comments "OverUsed")]

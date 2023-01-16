@@ -22,6 +22,7 @@ import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.reasoner.Reasoner;
 import org.apache.jena.reasoner.rulesys.GenericRuleReasoner;
 import org.apache.jena.reasoner.rulesys.Rule;
+import org.apache.jena.reasoner.rulesys.builtins.BaseBuiltin;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -79,8 +80,7 @@ Resource Observation = m.createResource(ssn+"Observation");
 Resource CurrentObservation = m.createResource(data+"CurrentObservation");
 Resource room = m.createResource(data+ roomStr);
 Resource electricPower = m.createResource(wd + "Q27137");
-Resource threshold = m.createResource(data + "threshold");
-Resource TemperatureThreshold = m.createResource(data + "TemperatureThreshold");
+
 
 
 
@@ -108,21 +108,10 @@ public void doDemo() {
         client.subscribe(topicCo2);
         client.subscribe(topicTemp);
         client.subscribe(topicPower);
-    	NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
-    	while(statusOfRoom.hasNext()){
-    		
-    	    RDFNode object = statusOfRoom.next();
-    	    String statusStr = object.toString();
-    	    MqttMessage message = new MqttMessage();
-    	    message.setPayload(statusStr
-                  .getBytes());
-    	    client.publish(topicExample, message);
-    	    System.out.println("pub");
-    	    
-    		
-    	}
+
                
     	CurrentObservation.removeProperties();
+    	room.removeAll(comments);
 //        MqttMessage message = new MqttMessage();
 //        message.setPayload(reasoning(results[1], results[2], results[3])
 //                .getBytes());
@@ -191,12 +180,6 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	
 	m = inferModel(m);
 	
-
-	
-	
-	
-
-	
 	
 	try {	
 		FileOutputStream fout = new FileOutputStream("test.rdf"); // will be Changed to Notation 3 
@@ -207,18 +190,25 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	}
 	//配列とインクリメントを引数としたRDF作成関数を作成する
 	
-	CurrentObservation.removeProperties();
 	
 	flagCo2 = false;
 	flagHum = false;
 	flagTem = false;
 	flagPow = false;
 	
-//    MqttMessage message1 = new MqttMessage();
-//    message1.setPayload(reasoning(results[1], results[2], results[3])
-//            .getBytes());
-//    client.publish(topicExample, message1);
-//    System.out.println("pub");
+	NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
+	while(statusOfRoom.hasNext()){   		
+	    RDFNode object = statusOfRoom.next();
+	    String statusStr = object.toString();
+	    MqttMessage message1 = new MqttMessage();
+	    message1.setPayload(statusStr
+              .getBytes());
+	    client.publish(topicExample, message1);
+	    System.out.println("pub");   	
+	}
+	
+	CurrentObservation.removeProperties();
+	m.removeAll(room, comments, null); // not sure if it works
 	
 	
 }
@@ -235,18 +225,17 @@ public  void createModel(double[] results, int count) {
 	Resource obPow = m.createResource(data+"Observation/power/"+String.valueOf(count));
 	// adding property
 	
-	threshold.addProperty(type, TemperatureThreshold);
-	threshold.addProperty(hasValue, tempThreshold);
+
 	
 	obHum.addLiteral(hasSimpleResult, results[1]);
 	obCo2.addLiteral(hasSimpleResult, results[2]);
 	obTem.addLiteral(hasSimpleResult, results[3]);
 	obPow.addLiteral(hasSimpleResult, results[4]);
 	
-	obHum.addLiteral(resultTime, results[0]);
-	obCo2.addLiteral(resultTime, results[0]);
-	obTem.addLiteral(resultTime, results[0]);
-	obPow.addLiteral(resultTime, results[0]);
+	obHum.addLiteral(resultTime, array[0]);
+	obCo2.addLiteral(resultTime, array[0]);
+	obTem.addLiteral(resultTime, array[0]);
+	obPow.addLiteral(resultTime, array[0]);
 	
 	obHum.addProperty(hasFeatureOfInterest, room);
 	obCo2.addProperty(hasFeatureOfInterest, room);
