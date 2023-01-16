@@ -5,10 +5,24 @@ import java.io.FileOutputStream;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryExecutionFactory;
+import org.apache.jena.query.QueryFactory;
+import org.apache.jena.query.QuerySolution;
+import org.apache.jena.query.ResultSet;
+import org.apache.jena.rdf.model.InfModel;
+import org.apache.jena.rdf.model.Literal;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.NodeIterator;
 import org.apache.jena.rdf.model.Property;
+import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.reasoner.Reasoner;
+import org.apache.jena.reasoner.rulesys.GenericRuleReasoner;
+import org.apache.jena.reasoner.rulesys.Rule;
+import org.apache.jena.reasoner.rulesys.builtins.BaseBuiltin;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -43,9 +57,9 @@ String sosa = "http://www.w3.org/ns/sosa/";
 String ssn = "http://www.w3.org/ns/ssn/";
 String rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 String data = "http://example.org/data/";
+String rdfs = "http://www.w3.org/2000/01/rdf-schema#";
 String roomStr = "RoomE208";
 
-	
 Model m = ModelFactory.createDefaultModel();//create RDF model
 	
 Property hosts = m.createProperty(sosa+"hosts");
@@ -56,6 +70,7 @@ Property madeBySensor = m.createProperty(sosa+"madeBySensor");
 Property resultTime = m.createProperty(sosa+"resultTime");
 Property type = m.createProperty(rdf+"type");
 Property hasValue = m.createProperty(rdf+"hasValue");
+Property comments = m.createProperty(rdfs + "comments");
 
 Resource ESP32 = m.createResource(wd+"Q27921668");
 Resource humidity = m.createResource(wd+"Q180600");
@@ -65,8 +80,7 @@ Resource Observation = m.createResource(ssn+"Observation");
 Resource CurrentObservation = m.createResource(data+"CurrentObservation");
 Resource room = m.createResource(data+ roomStr);
 Resource electricPower = m.createResource(wd + "Q27137");
-Resource threshold = m.createResource(data + "threshold");
-Resource TemperatureThreshold = m.createResource(data + "TemperatureThreshold");
+
 
 
 
@@ -77,6 +91,7 @@ public CreateRDF() {
 	m.setNsPrefix("wd", wd);
 	m.setNsPrefix("data", data);
 	m.setNsPrefix("rdf", rdf);
+	m.setNsPrefix("rdfs", rdfs);
 }
 
 public static void main(String[] args) {
@@ -93,6 +108,10 @@ public void doDemo() {
         client.subscribe(topicCo2);
         client.subscribe(topicTemp);
         client.subscribe(topicPower);
+
+               
+    	CurrentObservation.removeProperties();
+    	room.removeAll(comments);
 //        MqttMessage message = new MqttMessage();
 //        message.setPayload(reasoning(results[1], results[2], results[3])
 //                .getBytes());
@@ -156,10 +175,14 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	String time =getTimeStamp();
 	array[0] = time;
 	
-	createModel(array,i);
+	createModel(results,i);
 	i++;
+	
+	m = inferModel(m);
+	
+	
 	try {	
-		FileOutputStream fout = new FileOutputStream("test.rdf");
+		FileOutputStream fout = new FileOutputStream("test.rdf"); // will be Changed to Notation 3 
 		m.write(fout,"TTL");
 	}
 	catch(FileNotFoundException e) {
@@ -167,18 +190,27 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	}
 	//配列とインクリメントを引数としたRDF作成関数を作成する
 	
-	CurrentObservation.removeProperties();
 	
 	flagCo2 = false;
 	flagHum = false;
 	flagTem = false;
 	flagPow = false;
 	
-    MqttMessage message1 = new MqttMessage();
-    message1.setPayload(reasoning(results[1], results[2], results[3])
-            .getBytes());
-    client.publish(topicExample, message1);
-    System.out.println("pub");
+	NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
+	while(statusOfRoom.hasNext()){   		
+	    RDFNode object = statusOfRoom.next();
+	    String statusStr = object.toString();
+	    MqttMessage message1 = new MqttMessage();
+	    message1.setPayload(statusStr
+              .getBytes());
+	    client.publish(topicExample, message1);
+	    System.out.println("pub");   	
+	}
+	
+	CurrentObservation.removeProperties();
+	m.removeAll(room, comments, null); // not sure if it works
+	
+	
 }
 }
 @Override
@@ -186,25 +218,24 @@ public void deliveryComplete(IMqttDeliveryToken token) {
     // TODO Auto-generated method stub
 }
 
-public  void createModel(String[] results, int count) {
+public  void createModel(double[] results, int count) {
 	Resource obCo2 = m.createResource(data+"Observation/co2/"+String.valueOf(count));
 	Resource obTem = m.createResource(data+"Observation/temperature/"+String.valueOf(count));
 	Resource obHum = m.createResource(data+"Observation/humidity/"+String.valueOf(count));
 	Resource obPow = m.createResource(data+"Observation/power/"+String.valueOf(count));
 	// adding property
 	
-	threshold.addProperty(type, TemperatureThreshold);
-	threshold.addProperty(hasValue, tempThreshold);
+
 	
-	obHum.addProperty(hasSimpleResult, results[1]);
-	obCo2.addProperty(hasSimpleResult, results[2]);
-	obTem.addProperty(hasSimpleResult, results[3]);
-	obPow.addProperty(hasSimpleResult, results[4]);
+	obHum.addLiteral(hasSimpleResult, results[1]);
+	obCo2.addLiteral(hasSimpleResult, results[2]);
+	obTem.addLiteral(hasSimpleResult, results[3]);
+	obPow.addLiteral(hasSimpleResult, results[4]);
 	
-	obHum.addProperty(resultTime, results[0]);
-	obCo2.addProperty(resultTime, results[0]);
-	obTem.addProperty(resultTime, results[0]);
-	obPow.addProperty(resultTime, results[0]);
+	obHum.addLiteral(resultTime, array[0]);
+	obCo2.addLiteral(resultTime, array[0]);
+	obTem.addLiteral(resultTime, array[0]);
+	obPow.addLiteral(resultTime, array[0]);
 	
 	obHum.addProperty(hasFeatureOfInterest, room);
 	obCo2.addProperty(hasFeatureOfInterest, room);
@@ -258,9 +289,23 @@ public static String reasoning(double humidity, double co2, double temperature) 
 }
 
 
-public static String reasoningSparqle() {
+public static Model inferModel(Model m) {
+	Reasoner reasoner = new GenericRuleReasoner(Rule.rulesFromURL("C:\\Users\\heilab.DESKTOP-5C885MS\\eclipse-workspace2\\testReasoner\\src\\testReasoner\\myrules.rules"));
+    // Bind the reasoner to the model
+    InfModel infModel = ModelFactory.createInfModel(reasoner, m);
+    
+
+    
+    // Perform reasoning on the model
+    infModel.prepare();
+    infModel.write(System.out, "N3"); 
 	
-	return("COMFORTABLE");
+	return(infModel);
 	
 }
+
+
+
+
+
 }
