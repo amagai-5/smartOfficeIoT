@@ -290,7 +290,7 @@ public static String reasoning(double humidity, double co2, double temperature) 
 
 
 public static Model inferModel(Model m) {
-	Reasoner reasoner = new GenericRuleReasoner(Rule.rulesFromURL("C:\\Users\\heilab.DESKTOP-5C885MS\\eclipse-workspace2\\testReasoner\\src\\testReasoner\\myrules.rules"));
+	Reasoner reasoner = new GenericRuleReasoner(Rule.rulesFromURL("C:\\Users\\heilab.DESKTOP-5C885MS\\eclipse-workspace\\CreateRDF\\myrules.rules"));
     // Bind the reasoner to the model
     InfModel infModel = ModelFactory.createInfModel(reasoner, m);
     
