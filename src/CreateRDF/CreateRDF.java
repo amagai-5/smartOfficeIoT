@@ -1,9 +1,22 @@
 package CreateRDF;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
+import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.util.List;
 
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryExecution;
@@ -18,11 +31,14 @@ import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.NodeIterator;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.RDFNode;
+import org.apache.jena.rdf.model.RDFWriter;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.reasoner.Reasoner;
 import org.apache.jena.reasoner.rulesys.GenericRuleReasoner;
 import org.apache.jena.reasoner.rulesys.Rule;
 import org.apache.jena.reasoner.rulesys.builtins.BaseBuiltin;
+import org.apache.jena.riot.Lang;
+import org.apache.jena.riot.RDFDataMgr;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -39,7 +55,6 @@ String tempString;
 String powerString;
 int i = 0;
 
-String tempThreshold = "30";// change threshold here
 
 boolean flagCo2 = false;
 boolean flagHum = false;
@@ -101,7 +116,7 @@ public static void main(String[] args) {
 
 public void doDemo() {
     try {
-        client = new MqttClient("tcp://172.20.10.3:1883", "Sending");
+        client = new MqttClient("tcp://192.168.8.213:1883", "Sending");
         client.connect();
         client.setCallback(this);
         client.subscribe(topicHumid);
@@ -109,14 +124,8 @@ public void doDemo() {
         client.subscribe(topicTemp);
         client.subscribe(topicPower);
 
-               
     	CurrentObservation.removeProperties();
     	room.removeAll(comments);
-//        MqttMessage message = new MqttMessage();
-//        message.setPayload(reasoning(results[1], results[2], results[3])
-//                .getBytes());
-//        client.publish(topicExample, message);
-//        System.out.println("pub");
     }
     catch (MqttException e) {
         e.printStackTrace();
@@ -179,17 +188,20 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	i++;
 	
 	m = inferModel(m);
-	
-	
-	try {	
-		FileOutputStream fout = new FileOutputStream("test.rdf"); // will be Changed to Notation 3 
-		m.write(fout,"TTL");
+
+	FileOutputStream fout = new FileOutputStream("test.nt"); // will be Changed to Notation 3 
+	System.out.println("Write the file...");
+		
+	try {
+		m.write(fout,"N-TRIPLE");
+		fout.close();
 	}
 	catch(FileNotFoundException e) {
 		e.printStackTrace();
 	}
-	//配列とインクリメントを引数としたRDF作成関数を作成する
-	
+
+
+
 	
 	flagCo2 = false;
 	flagHum = false;
@@ -200,7 +212,7 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	while(statusOfRoom.hasNext()){   		
 	    RDFNode object = statusOfRoom.next();
 	    String statusStr = object.toString();
-	    MqttMessage message1 = new MqttMessage();
+	    MqttMessage message1 = new MqttMessage();	
 	    message1.setPayload(statusStr
               .getBytes());
 	    client.publish(topicExample, message1);
@@ -208,11 +220,13 @@ if (flagTem && flagHum && flagCo2 && flagPow == true) {
 	}
 	
 	CurrentObservation.removeProperties();
-	m.removeAll(room, comments, null); // not sure if it works
+	m.removeAll(room, comments, null); 
 	
 	
 }
 }
+
+
 @Override
 public void deliveryComplete(IMqttDeliveryToken token) {
     // TODO Auto-generated method stub
@@ -224,8 +238,6 @@ public  void createModel(double[] results, int count) {
 	Resource obHum = m.createResource(data+"Observation/humidity/"+String.valueOf(count));
 	Resource obPow = m.createResource(data+"Observation/power/"+String.valueOf(count));
 	// adding property
-	
-
 	
 	obHum.addLiteral(hasSimpleResult, results[1]);
 	obCo2.addLiteral(hasSimpleResult, results[2]);
@@ -256,10 +268,6 @@ public  void createModel(double[] results, int count) {
 	CurrentObservation.addProperty(type, obTem);
 	CurrentObservation.addProperty(type, obCo2);
 	CurrentObservation.addProperty(type, obPow);
-	
-	
-	
-	System.out.print("Writing RDF...");
 }
 
 public static String getTimeStamp() {
@@ -268,44 +276,26 @@ public static String getTimeStamp() {
     return sdf.format(timestamp);
   }
 
-public static String reasoning(double humidity, double co2, double temperature) {
-	
-
-	double humThreshold = 60;
-	double temThreshold = 36;
-	double co2Threshold = 1500;
-	
-	if (humThreshold < humidity || temThreshold < temperature || co2Threshold < co2) {
-		System.out.println("UNCOMFROTABLE");
-		return("UNCOMFORTABLE");
-	}
-	
-	else {
-		System.out.println("COMFROTABLE");
-		return("COMFORTABLE");
-	}
-	
-	
-}
 
 
-public static Model inferModel(Model m) {
-	Reasoner reasoner = new GenericRuleReasoner(Rule.rulesFromURL("C:\\Users\\heilab.DESKTOP-5C885MS\\eclipse-workspace\\CreateRDF\\myrules.rules"));
-    // Bind the reasoner to the model
-    InfModel infModel = ModelFactory.createInfModel(reasoner, m);
-    
+public Model inferModel(Model m) {
 
-    
+	Path path = Paths.get("target").toAbsolutePath().normalize();
+	String rulesStr = path.toFile().getAbsolutePath() + "/classes/myrules.rules";
+	System.out.println(rulesStr);
+	
+	List <Rule> rules = Rule.rulesFromURL(rulesStr);
+	System.out.println("Read the file...");
+	GenericRuleReasoner ruleReasoner = new GenericRuleReasoner(rules);
+	// Bind the reasoner to the model
+    InfModel infModel = ModelFactory.createInfModel(ruleReasoner, m);
+
+	
     // Perform reasoning on the model
     infModel.prepare();
-    infModel.write(System.out, "N3"); 
-	
+    // infModel.write(System.out, "N3"); 
 	return(infModel);
-	
+
 }
-
-
-
-
 
 }
