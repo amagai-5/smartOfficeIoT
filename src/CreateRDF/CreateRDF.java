@@ -116,7 +116,7 @@ public static void main(String[] args) {
 
 public void doDemo() {
     try {
-        client = new MqttClient("tcp://172.20.10.3:1883", "Sending");
+        client = new MqttClient("tcp://192.168.8.213:1883", "Sending");
         client.connect();
         client.setCallback(this);
         client.subscribe(topicHumid);
