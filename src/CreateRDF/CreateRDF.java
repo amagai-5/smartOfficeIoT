@@ -11,12 +11,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
+import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileStoreAttributeView;
+import java.security.GeneralSecurityException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryExecution;
@@ -44,6 +51,24 @@ import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.DateTime;
+import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.api.services.calendar.Calendar;
+import com.google.api.services.calendar.CalendarScopes;
+import com.google.api.services.calendar.Calendar.Events.CalendarImport;
+import com.google.api.services.calendar.model.Event;
+import com.google.api.services.calendar.model.Events;
 
 
 public class CreateRDF implements MqttCallback {
@@ -96,11 +121,21 @@ Resource CurrentObservation = m.createResource(data+"CurrentObservation");
 Resource room = m.createResource(data+ roomStr);
 Resource electricPower = m.createResource(wd + "Q27137");
 
+String eventStr = null;
+String fileAsString = null;
+
+private static final String APPLICATION_NAME = "Google Calendar API Java Quickstart";
+private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+static final List<String> SCOPES = Collections.singletonList(CalendarScopes.CALENDAR_READONLY);
+Path path = Paths.get("resources").toAbsolutePath().normalize();
+String pathJson = path.toFile().getAbsolutePath() + "/credential.json";
 
 
 
 public CreateRDF() {
-	System.out.println("start");
+	System.out.println("<--------------------------->");
+	System.out.println("----------start-------------");
+	System.out.println("<--------------------------->");
 	m.setNsPrefix("sosa", sosa);
 	m.setNsPrefix("ssn", ssn);	
 	m.setNsPrefix("wd", wd);
@@ -116,7 +151,7 @@ public static void main(String[] args) {
 
 public void doDemo() {
     try {
-        client = new MqttClient("tcp://192.168.8.213:1883", "Sending");
+        client = new MqttClient("tcp://172.16.2.227:1883", "Sending");
         client.connect();
         client.setCallback(this);
         client.subscribe(topicHumid);
@@ -139,92 +174,99 @@ public void connectionLost(Throwable cause){
 }
 
 @Override
-public void messageArrived(String topic, MqttMessage message)
-        throws Exception {
- System.out.println(message);
- System.out.println(topic);
- 
- if (topic.equals(topicHumid)) {
-	System.out.println("gethumid");	
-	array[1] = message.toString();
-	results[1] = Double.parseDouble(array[1]);
-	flagHum = true;
-	System.out.println("True");
-
- }
- else if(topic.equals(topicCo2)) {
-	System.out.println("getCo2");
-	array[2] = message.toString();
-	results[2] = Double.parseDouble(array[2]);
-	flagCo2 = true;
-	System.out.println("True");
-
+public void messageArrived(String topic, MqttMessage message)throws Exception {
+	System.out.println("<--------------------------->");
+	System.out.println(message);
+	System.out.println(topic);
 	
- }
-else if(topic.equals(topicTemp)) {
-	System.out.println("getTemp");
-	array[3] = message.toString();
-	results[3] = Double.parseDouble(array[3]);
-	flagTem = true;
-	System.out.println("True");
+	if (topic.equals(topicHumid)) {
+		System.out.println("gethumid");	
+		array[1] = message.toString();
+		results[1] = Double.parseDouble(array[1]);
+		flagHum = true;
+		System.out.println("True");
 
-	
-}
+	}
+	else if(topic.equals(topicCo2)) {
+		System.out.println("getCo2");
+		array[2] = message.toString();
+		results[2] = Double.parseDouble(array[2]);
+		flagCo2 = true;
+		System.out.println("True");
 
-else if(topic.equals(topicPower)) {
-	System.out.println("getPower");
-	array[4] = message.toString();
-	results[4] = Double.parseDouble(array[4]);
-	flagPow = true;
-	System.out.println("True");
-
-	
-}
-if (flagTem && flagHum && flagCo2 && flagPow == true) {
-	String time =getTimeStamp();
-	array[0] = time;
-	
-	createModel(results,i);
-	i++;
-	
-	m = inferModel(m);
-
-	FileOutputStream fout = new FileOutputStream("test.nt"); // will be Changed to Notation 3 
-	System.out.println("Write the file...");
 		
-	try {
-		m.write(fout,"N-TRIPLE");
-		fout.close();
 	}
-	catch(FileNotFoundException e) {
-		e.printStackTrace();
+	else if(topic.equals(topicTemp)) {
+		System.out.println("getTemp");
+		array[3] = message.toString();
+		results[3] = Double.parseDouble(array[3]);
+		flagTem = true;
+		System.out.println("True");
+
+		
 	}
+
+	else if(topic.equals(topicPower)) {
+		System.out.println("getPower");
+		array[4] = message.toString();
+		results[4] = Double.parseDouble(array[4]);
+		flagPow = true;
+		System.out.println("True");
+
+		
+	}
+	System.out.println("<--------------------------->");
+
+	if (flagTem && flagHum && flagCo2 && flagPow == true) {
+		String time =getTimeStamp();
+		array[0] = time;
+		System.out.println("<--------------------------->");
+		System.out.println(getCalendar());
+		System.out.println("<--------------------------->");
+		createModel(results,i);
+		i++;
+		
+		m = inferModel(m);
+
+		FileOutputStream fout = new FileOutputStream("resources/test.nt"); // will be Changed to Notation 3 
+		System.out.println("<--------------------------->");
+		System.out.println("--------Write the file-------");
+		System.out.println("<--------------------------->");
+		try {
+			m.write(fout,"N-TRIPLE");
+			fout.close();
+		}
+		catch(FileNotFoundException e) {
+			e.printStackTrace();
+		}
 
 
 
-	
-	flagCo2 = false;
-	flagHum = false;
-	flagTem = false;
-	flagPow = false;
-	
-	NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
-	while(statusOfRoom.hasNext()){   		
-	    RDFNode object = statusOfRoom.next();
-	    String statusStr = object.toString();
-	    MqttMessage message1 = new MqttMessage();	
-	    message1.setPayload(statusStr
-              .getBytes());
-	    client.publish(topicExample, message1);
-	    System.out.println("pub");   	
+		
+		flagCo2 = false;
+		flagHum = false;
+		flagTem = false;
+		flagPow = false;
+		
+		NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
+		while(statusOfRoom.hasNext()){   		
+			RDFNode object = statusOfRoom.next();
+			String statusStr = object.toString();
+			MqttMessage message1 = new MqttMessage();	
+			message1.setPayload(statusStr
+				.getBytes());
+			client.publish(topicExample, message1);
+			System.out.println("<--------------------------->");
+			System.out.println("--------------pub------------");   	
+			System.out.println("<--------------------------->");
+		}
+		
+		CurrentObservation.removeProperties();
+		m.removeAll(room, comments, null); 
+		
+		
 	}
-	
-	CurrentObservation.removeProperties();
-	m.removeAll(room, comments, null); 
-	
-	
-}
-}
+	}
 
 
 @Override
@@ -280,12 +322,14 @@ public static String getTimeStamp() {
 
 public Model inferModel(Model m) {
 
-	Path path = Paths.get("target").toAbsolutePath().normalize();
-	String rulesStr = path.toFile().getAbsolutePath() + "/classes/myrules.rules";
+	Path path = Paths.get("resources").toAbsolutePath().normalize();
+	String rulesStr = path.toFile().getAbsolutePath() + "/myrules.rules";
 	System.out.println(rulesStr);
 	
 	List <Rule> rules = Rule.rulesFromURL(rulesStr);
-	System.out.println("Read the file...");
+	System.out.println("<--------------------------->");
+	System.out.println("---------Read the file------");
+	System.out.println("<--------------------------->");
 	GenericRuleReasoner ruleReasoner = new GenericRuleReasoner(rules);
 	// Bind the reasoner to the model
     InfModel infModel = ModelFactory.createInfModel(ruleReasoner, m);
@@ -297,5 +341,24 @@ public Model inferModel(Model m) {
 	return(infModel);
 
 }
+public String getCalendar() throws IOException, GeneralSecurityException {
+
+	GoogleCredential credential = GoogleCredential.fromStream(new FileInputStream(pathJson.toString()))
+.createScoped(Collections.singleton(CalendarScopes.CALENDAR_EVENTS));
+	final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+	Calendar service = new Calendar.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential).setApplicationName(APPLICATION_NAME).build();
+	Events events = service.events().list("c_55e22b7f5550fb20f7926339fb7d0b1ff34168810bc72446a6fc2e4c9918958b@group.calendar.google.com").execute();
+	System.out.println("working");
+	List<Event> items = events.getItems();
+	for (Event event : items) {
+		 DateTime start = event.getStart().getDateTime();
+		 DateTime end = event.getEnd().getDateTime();
+		 System.out.printf(event.getSummary() + " (" + start + " - " + end + ")");
+		 eventStr = event.getSummary();
+	}	
+	return eventStr;
+
+}
+
 
 }
