@@ -1,17 +1,28 @@
 @prefix ssn: <http://www.w3.org/ns/ssn/> .
 @prefix sosa: <http://www.w3.org/ns/sosa/> .
 @prefix data:  <http://example.org/data/> .
-@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix time: <https://www.w3.org/TR/owl-time/#> .
+@prefix wd: <https://www.wikidata.org/wiki/> .
 
-[ruleIsAboveTempThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) greaterThan(?v, 28) -> (data:RoomE208 rdfs:comments "Hot")]
+[IsPlanComingSoon: (data:Q24476018 time:time:hasBegin ?x) (data:RoomE208 wd:Q193168 ?v) lessThan(?x ?v) -> (data:OnOffStatus rdfs:comments "ON")]
 
-[ruleIsBelowTempThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) lessThan(?v, 18) -> (data:RoomE208 rdfs:comments "Cold")]
+[IsPlanComingSoon: (data:Q24476018 time:time:hasBegin ?x) (data:RoomE208 wd:Q193168 ?v) greaterThan(?x ?v) -> (data:OnOffStatus rdfs:comments "OFF")]
 
-[ruleIsAboveCo2Threshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q1997>) greaterThan(?v, 1000) -> (data:RoomE208 rdfs:comments "Danger")]
+[IsPlanEndingSoon: (data:Q24476018 time:time:hasEnd ?x) (data:RoomE208 wd:Q193168 ?v) lessThan(?x ?v) -> (data:OnOffStatus rdfs:comments "OFF")]
 
-[ruleIsAboveHumThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) greaterThan(?v, 65) -> (data:RoomE208 rdfs:comments "Humid")]
 
-[ruleIsBelowHumThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) lessThan(?v, 45) -> (data:RoomE208 rdfs:comments "Dried")]
+[ruleIsAboveTempThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) (data:OnOffStatus rdfs:comments "ON") greaterThan(?v, 28) -> (data:RoomE208 rdfs:comments "Hot")]
 
-[ruleIsAbovePowThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q27137>) greaterThan(?v, 1000) -> (data:RoomE208 rdfs:comments "OverUsed")]
+[ruleIsBelowTempThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q11466>) (data:OnOffStatus rdfs:comments "ON") lessThan(?v, 18) -> (data:RoomE208 rdfs:comments "Cold")]
+
+[ruleIsAboveCo2Threshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q1997>) (data:OnOffStatus rdfs:comments "ON") greaterThan(?v, 1000) -> (data:RoomE208 rdfs:comments "Danger")]
+
+[ruleIsAboveHumThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) (data:OnOffStatus rdfs:comments "ON") greaterThan(?v, 65) -> (data:RoomE208 rdfs:comments "Humid")]
+
+[ruleIsBelowHumThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q180600>) (data:OnOffStatus rdfs:comments "ON") lessThan(?v, 45) -> (data:RoomE208 rdfs:comments "Dried")]
+
+[ruleIsAbovePowThreshold: (data:CurrentObservation rdf:type ?x) (?x sosa:hasSimpleResult ?v) (?x sosa:observedProperty <https://www.wikidata.org/wiki/Q27137>) (data:OnOffStatus rdfs:comments "ON") greaterThan(?v, 1000) -> (data:RoomE208 rdfs:comments "OverUsed")]
+
+

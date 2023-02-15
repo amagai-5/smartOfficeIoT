@@ -20,11 +20,27 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.FileStoreAttributeView;
 import java.security.GeneralSecurityException;
 import java.sql.Timestamp;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.stream.Stream;
 
+import javax.xml.bind.DatatypeConverter;
+
+
+import java.lang.Object;
+
+
+
+import org.apache.jena.datatypes.xsd.XSDDatatype;
+import org.apache.jena.datatypes.xsd.XSDDateTime;
+import org.apache.jena.datatypes.xsd.impl.XSDDateTimeStampType;
+import org.apache.jena.datatypes.xsd.impl.XSDDateTimeType;
+import org.apache.jena.ext.xerces.impl.dv.xs.DateTimeDV;
 import org.apache.jena.query.Query;
 import org.apache.jena.query.QueryExecution;
 import org.apache.jena.query.QueryExecutionFactory;
@@ -46,11 +62,13 @@ import org.apache.jena.reasoner.rulesys.Rule;
 import org.apache.jena.reasoner.rulesys.builtins.BaseBuiltin;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.vocabulary.XSD;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.w3c.dom.Comment;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
@@ -80,6 +98,10 @@ String tempString;
 String powerString;
 int i = 0;
 
+java.util.Calendar calNow = null;
+java.util.Calendar startCal = null;
+java.util.Calendar endCal = null;
+
 
 boolean flagCo2 = false;
 boolean flagHum = false;
@@ -91,7 +113,8 @@ String topicHumid = "esp32/humidity";
 String topicCo2 = "esp32/co2";
 String topicTemp = "esp32/temperature";
 String topicPower = "esp32/power";
-String topicExample = "java/output";
+String topicAlarm = "java/alarm";
+String topicPlan = "java/plan";
 String wd = "https://www.wikidata.org/wiki/";
 String sosa = "http://www.w3.org/ns/sosa/";
 String ssn = "http://www.w3.org/ns/ssn/";
@@ -99,6 +122,9 @@ String rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 String data = "http://example.org/data/";
 String rdfs = "http://www.w3.org/2000/01/rdf-schema#";
 String roomStr = "RoomE208";
+String xsd = "http://www.w3.org/2001/XMLSchema#";
+String time = "https://www.w3.org/TR/owl-time/#";
+String planStr = null;
 
 Model m = ModelFactory.createDefaultModel();//create RDF model
 	
@@ -111,6 +137,12 @@ Property resultTime = m.createProperty(sosa+"resultTime");
 Property type = m.createProperty(rdf+"type");
 Property hasValue = m.createProperty(rdf+"hasValue");
 Property comments = m.createProperty(rdfs + "comments");
+Property now = m.createProperty(wd + "Q193168");
+Property hasBegin = m.createProperty(time + "time:hasBegin");
+Property hasEnd = m.createProperty(time + "time:hasEnd");
+Property hasStatus = m.createProperty(data, "hasStatus");
+
+
 
 Resource ESP32 = m.createResource(wd+"Q27921668");
 Resource humidity = m.createResource(wd+"Q180600");
@@ -120,6 +152,9 @@ Resource Observation = m.createResource(ssn+"Observation");
 Resource CurrentObservation = m.createResource(data+"CurrentObservation");
 Resource room = m.createResource(data+ roomStr);
 Resource electricPower = m.createResource(wd + "Q27137");
+Resource plan = m.createResource(wd + "Q1371819");
+Resource onOffStatus = m.createResource(data+"OnOffStatus");
+Resource optimization = m.createResource(data+"Q24476018");
 
 String eventStr = null;
 String fileAsString = null;
@@ -142,6 +177,8 @@ public CreateRDF() {
 	m.setNsPrefix("data", data);
 	m.setNsPrefix("rdf", rdf);
 	m.setNsPrefix("rdfs", rdfs);
+	m.setNsPrefix("xsd", xsd);
+	m.setNsPrefix("time",time);
 }
 
 public static void main(String[] args) {
@@ -151,7 +188,7 @@ public static void main(String[] args) {
 
 public void doDemo() {
     try {
-        client = new MqttClient("tcp://172.16.2.227:1883", "Sending");
+        client = new MqttClient("tcp://172.20.10.3:1883", "Sending");
         client.connect();
         client.setCallback(this);
         client.subscribe(topicHumid);
@@ -161,6 +198,11 @@ public void doDemo() {
 
     	CurrentObservation.removeProperties();
     	room.removeAll(comments);
+		room.removeAll(hasBegin);
+		room.removeAll(hasEnd);
+		onOffStatus.removeAll(comments);
+		plan.removeAll(type);
+
     }
     catch (MqttException e) {
         e.printStackTrace();
@@ -218,8 +260,9 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 	System.out.println("<--------------------------->");
 
 	if (flagTem && flagHum && flagCo2 && flagPow == true) {
-		String time =getTimeStamp();
-		array[0] = time;
+		calNow =getTimeStamp();
+		calNow.getTimeInMillis();;
+		// array[0] = time;
 		System.out.println("<--------------------------->");
 		System.out.println(getCalendar());
 		System.out.println("<--------------------------->");
@@ -241,21 +284,31 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 		}
 
 
-
-		
 		flagCo2 = false;
 		flagHum = false;
 		flagTem = false;
 		flagPow = false;
 		
+		NodeIterator onOffIterator = m.listObjectsOfProperty(onOffStatus, comments);
+		while(onOffIterator.hasNext()){   		
+			RDFNode object1 = onOffIterator.next();
+			String statusStr1 = object1.toString();
+			System.out.println(statusStr1);
+			MqttMessage message1 = new MqttMessage();	
+			message1.setPayload(statusStr1.getBytes());
+			client.publish(topicPlan, message1);
+			System.out.println("<--------------------------->");
+			System.out.println("--------------pub------------");   	
+			System.out.println("<--------------------------->");
+		}
+
 		NodeIterator statusOfRoom = m.listObjectsOfProperty(room, comments);
 		while(statusOfRoom.hasNext()){   		
-			RDFNode object = statusOfRoom.next();
-			String statusStr = object.toString();
-			MqttMessage message1 = new MqttMessage();	
-			message1.setPayload(statusStr
-				.getBytes());
-			client.publish(topicExample, message1);
+			RDFNode object2 = statusOfRoom.next();
+			String statusStr2 = object2.toString();
+			MqttMessage message2 = new MqttMessage();	
+			message2.setPayload(statusStr2.getBytes());
+			client.publish(topicAlarm, message2);
 			System.out.println("<--------------------------->");
 			System.out.println("--------------pub------------");   	
 			System.out.println("<--------------------------->");
@@ -263,7 +316,10 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 		
 		CurrentObservation.removeProperties();
 		m.removeAll(room, comments, null); 
-		
+		m.removeAll(room,hasEnd,null);
+		m.removeAll(room,hasBegin,null);
+		m.removeAll(onOffStatus,comments,null);
+		m.removeAll(plan,type,null);
 		
 	}
 	}
@@ -286,10 +342,27 @@ public  void createModel(double[] results, int count) {
 	obTem.addLiteral(hasSimpleResult, results[3]);
 	obPow.addLiteral(hasSimpleResult, results[4]);
 	
-	obHum.addLiteral(resultTime, array[0]);
-	obCo2.addLiteral(resultTime, array[0]);
-	obTem.addLiteral(resultTime, array[0]);
-	obPow.addLiteral(resultTime, array[0]);
+	obHum.addLiteral(resultTime, calNow);
+	obCo2.addLiteral(resultTime, calNow);
+	obTem.addLiteral(resultTime, calNow);
+	obPow.addLiteral(resultTime, calNow);
+	
+
+	room.addLiteral(now, calNow);
+	room.addProperty(hasFeatureOfInterest, plan); //another property should be better
+	room.addProperty(hasFeatureOfInterest, optimization);
+	if(startCal != null){
+		plan.addLiteral(hasBegin,startCal);
+		plan.addLiteral(hasEnd,endCal);
+		plan.addLiteral(type,eventStr);
+		startCal.add(java.util.Calendar.MINUTE, -30);
+		endCal.add(java.util.Calendar.MINUTE, -15);
+
+		optimization.addLiteral(hasBegin, startCal);
+		optimization.addLiteral(hasEnd, endCal);
+	}
+
+	room.addProperty(hasStatus,onOffStatus);
 	
 	obHum.addProperty(hasFeatureOfInterest, room);
 	obCo2.addProperty(hasFeatureOfInterest, room);
@@ -312,11 +385,16 @@ public  void createModel(double[] results, int count) {
 	CurrentObservation.addProperty(type, obPow);
 }
 
-public static String getTimeStamp() {
+public  java.util.Calendar getTimeStamp() throws ParseException {
     Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HHmmss");
-    return sdf.format(timestamp);
-  }
+	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+	sdf.setTimeZone(TimeZone.getTimeZone("CET"));
+	String ttime = sdf.format(timestamp);
+	System.out.print(ttime);
+	java.util.Calendar cal = java.util.Calendar.getInstance(TimeZone.getTimeZone("JST"));
+	cal = DatatypeConverter.parseDateTime(ttime);
+	return cal;
+}
 
 
 
@@ -342,17 +420,25 @@ public Model inferModel(Model m) {
 
 }
 public String getCalendar() throws IOException, GeneralSecurityException {
-
+	DateTime now = new DateTime(System.currentTimeMillis());
 	GoogleCredential credential = GoogleCredential.fromStream(new FileInputStream(pathJson.toString()))
 .createScoped(Collections.singleton(CalendarScopes.CALENDAR_EVENTS));
 	final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 	Calendar service = new Calendar.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential).setApplicationName(APPLICATION_NAME).build();
-	Events events = service.events().list("c_55e22b7f5550fb20f7926339fb7d0b1ff34168810bc72446a6fc2e4c9918958b@group.calendar.google.com").execute();
-	System.out.println("working");
+	Events events = service.events().list("c_55e22b7f5550fb20f7926339fb7d0b1ff34168810bc72446a6fc2e4c9918958b@group.calendar.google.com").setMaxResults(1)
+	.setTimeMin(now).setOrderBy("startTime").setSingleEvents(true)
+	.execute();
+	System.out.println("calendarAPI is working");
+	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+	sdf.setTimeZone(TimeZone.getTimeZone("CET"));
 	List<Event> items = events.getItems();
 	for (Event event : items) {
 		 DateTime start = event.getStart().getDateTime();
+		 String startTime = start.toString();
+		 startCal = DatatypeConverter.parseDateTime(startTime);
 		 DateTime end = event.getEnd().getDateTime();
+		 String endTime = end.toString();
+		 endCal = DatatypeConverter.parseDateTime(endTime);
 		 System.out.printf(event.getSummary() + " (" + start + " - " + end + ")");
 		 eventStr = event.getSummary();
 	}	
