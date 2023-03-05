@@ -10,6 +10,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URL;
@@ -23,9 +24,11 @@ import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Scanner;
 import java.util.TimeZone;
 import java.util.stream.Stream;
 
@@ -62,6 +65,7 @@ import org.apache.jena.reasoner.rulesys.Rule;
 import org.apache.jena.reasoner.rulesys.builtins.BaseBuiltin;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.sparql.pfunction.library.alt;
 import org.apache.jena.vocabulary.XSD;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -87,6 +91,10 @@ import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.services.calendar.Calendar.Events.CalendarImport;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.Events;
+import com.google.api.services.tasks.Tasks;
+import com.google.api.services.tasks.TasksScopes;
+import com.google.api.services.tasks.model.TaskList;
+import com.google.api.services.tasks.model.TaskLists;
 
 
 public class CreateRDF implements MqttCallback {
@@ -107,7 +115,9 @@ boolean flagCo2 = false;
 boolean flagHum = false;
 boolean flagTem = false;
 boolean flagPow = false;
-String array[]= new String[5];
+boolean flagPre = false;
+boolean flagWea = false;
+String array[]= new String[7];
 double results[] = new double[]{0,0,0,0,0};
 String topicHumid = "esp32/humidity";
 String topicCo2 = "esp32/co2";
@@ -115,6 +125,8 @@ String topicTemp = "esp32/temperature";
 String topicPower = "esp32/power";
 String topicAlarm = "java/alarm";
 String topicPlan = "java/plan";
+String topicWeather = "esp32/weather";
+String topicPresence = "esp32/presence";
 String wd = "https://www.wikidata.org/wiki/";
 String sosa = "http://www.w3.org/ns/sosa/";
 String ssn = "http://www.w3.org/ns/ssn/";
@@ -125,6 +137,7 @@ String roomStr = "RoomE208";
 String xsd = "http://www.w3.org/2001/XMLSchema#";
 String time = "https://www.w3.org/TR/owl-time/#";
 String planStr = null;
+
 
 Model m = ModelFactory.createDefaultModel();//create RDF model
 	
@@ -154,16 +167,31 @@ Resource room = m.createResource(data+ roomStr);
 Resource electricPower = m.createResource(wd + "Q27137");
 Resource plan = m.createResource(wd + "Q1371819");
 Resource onOffStatus = m.createResource(data+"OnOffStatus");
-Resource optimization = m.createResource(data+"Q24476018");
+Resource optimization = m.createResource(wd+"Q24476018");
+Resource presence = m.createResource(wd+"Q24255051");
+Resource window = m.createResource(wd+"Q35473");
+Resource actuator = m.createResource(wd+"Q423488");
+Resource weather = m.createResource(wd+"Q11663");
 
 String eventStr = null;
 String fileAsString = null;
 
-private static final String APPLICATION_NAME = "Google Calendar API Java Quickstart";
+private static final String APPLICATION_NAME = "Google Calendar API";
 private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
-static final List<String> SCOPES = Collections.singletonList(CalendarScopes.CALENDAR_READONLY);
-Path path = Paths.get("resources").toAbsolutePath().normalize();
-String pathJson = path.toFile().getAbsolutePath() + "/credential.json";
+static final List<String> SCOPESCalendar = Collections.singletonList(CalendarScopes.CALENDAR_READONLY);
+static Path path = Paths.get("resources").toAbsolutePath().normalize();
+String pathCredentialCal = path.toFile().getAbsolutePath() + "/credentialCalendar.json";
+
+private static final String APPLICATION_NAME_TASKS = "Google Tasks API Java Quickstart";
+private static final JsonFactory JSON_FACTORY_TASKS = JacksonFactory.getDefaultInstance();
+private static final String TOKENS_DIRECTORY_PATH = "tokens";
+private static final List<String> SCOPESTasks = Collections.singletonList(TasksScopes.TASKS);
+static String pathCredentialTasks = path.toFile().getAbsolutePath() + "/credentialTasks.json";
+
+
+
+
+
 
 
 
@@ -188,13 +216,15 @@ public static void main(String[] args) {
 
 public void doDemo() {
     try {
-        client = new MqttClient("tcp://172.20.10.3:1883", "Sending");
+        client = new MqttClient("tcp://192.168.1.45:1883", "Sending");
         client.connect();
         client.setCallback(this);
         client.subscribe(topicHumid);
         client.subscribe(topicCo2);
         client.subscribe(topicTemp);
         client.subscribe(topicPower);
+		client.subscribe(topicPresence);
+		client.subscribe(topicWeather);
 
     	CurrentObservation.removeProperties();
     	room.removeAll(comments);
@@ -234,9 +264,7 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 		array[2] = message.toString();
 		results[2] = Double.parseDouble(array[2]);
 		flagCo2 = true;
-		System.out.println("True");
-
-		
+		System.out.println("True");	
 	}
 	else if(topic.equals(topicTemp)) {
 		System.out.println("getTemp");
@@ -244,8 +272,6 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 		results[3] = Double.parseDouble(array[3]);
 		flagTem = true;
 		System.out.println("True");
-
-		
 	}
 
 	else if(topic.equals(topicPower)) {
@@ -254,12 +280,27 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 		results[4] = Double.parseDouble(array[4]);
 		flagPow = true;
 		System.out.println("True");
-
-		
 	}
+
+	else if(topic.equals(topicPresence)) {
+		System.out.println("getPresence");
+		array[5] = message.toString();
+		// results[5] = Double.parseDouble(array[4]);
+		flagPre = true;
+		System.out.println("True");
+	}
+
+	else if(topic.equals(topicWeather)) {
+		System.out.println("getWeather");
+		array[6] = message.toString();
+		// results[5] = Double.parseDouble(array[4]);
+		flagWea = true;
+		System.out.println("True");
+	}
+	
 	System.out.println("<--------------------------->");
 
-	if (flagTem && flagHum && flagCo2 && flagPow == true) {
+	if (flagTem && flagHum && flagCo2 && flagPow && flagPre && flagWea == true) {
 		calNow =getTimeStamp();
 		calNow.getTimeInMillis();;
 		// array[0] = time;
@@ -283,11 +324,16 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 			e.printStackTrace();
 		}
 
+		deleteTasks();
+		
+
 
 		flagCo2 = false;
 		flagHum = false;
 		flagTem = false;
 		flagPow = false;
+		flagPre = false;
+		flagWea = false;
 		
 		NodeIterator onOffIterator = m.listObjectsOfProperty(onOffStatus, comments);
 		while(onOffIterator.hasNext()){   		
@@ -335,17 +381,31 @@ public  void createModel(double[] results, int count) {
 	Resource obTem = m.createResource(data+"Observation/temperature/"+String.valueOf(count));
 	Resource obHum = m.createResource(data+"Observation/humidity/"+String.valueOf(count));
 	Resource obPow = m.createResource(data+"Observation/power/"+String.valueOf(count));
+	Resource obPre = m.createResource(data+"Observation/presence/"+String.valueOf(count));
+	Resource obWea = m.createResource(data+"Observation/weather/"+String.valueOf(count));
 	// adding property
 	
+
+
+	room.addProperty(hosts, actuator);
+	room.addLiteral(hosts, window);
+
+
+
 	obHum.addLiteral(hasSimpleResult, results[1]);
 	obCo2.addLiteral(hasSimpleResult, results[2]);
 	obTem.addLiteral(hasSimpleResult, results[3]);
 	obPow.addLiteral(hasSimpleResult, results[4]);
+	obPre.addLiteral(hasSimpleResult, array[5]);
+	obWea.addLiteral(hasSimpleResult, array[6]);
+	
 	
 	obHum.addLiteral(resultTime, calNow);
 	obCo2.addLiteral(resultTime, calNow);
 	obTem.addLiteral(resultTime, calNow);
 	obPow.addLiteral(resultTime, calNow);
+	obPre.addLiteral(resultTime, calNow);
+	obWea.addLiteral(resultTime, calNow);
 	
 
 	room.addLiteral(now, calNow);
@@ -368,21 +428,30 @@ public  void createModel(double[] results, int count) {
 	obCo2.addProperty(hasFeatureOfInterest, room);
 	obTem.addProperty(hasFeatureOfInterest, room);
 	obPow.addProperty(hasFeatureOfInterest, room);
+	obPre.addProperty(hasFeatureOfInterest, room);
+	obWea.addProperty(hasFeatureOfInterest, room);
 	
 	obHum.addProperty(type, Observation);
 	obCo2.addProperty(type, Observation);
 	obTem.addProperty(type, Observation);
 	obPow.addProperty(type, Observation);
+	obPre.addProperty(type, Observation);
+	obWea.addProperty(type, Observation);
+
 	
 	obHum.addProperty(observedProperty, humidity);
 	obCo2.addProperty(observedProperty, co2);
 	obTem.addProperty(observedProperty, temperature);	
 	obPow.addProperty(observedProperty, electricPower);	
+	obPre.addProperty(observedProperty, presence);
+	obWea.addProperty(observedProperty, weather);
 	
 	CurrentObservation.addProperty(type, obHum);
 	CurrentObservation.addProperty(type, obTem);
 	CurrentObservation.addProperty(type, obCo2);
 	CurrentObservation.addProperty(type, obPow);
+	CurrentObservation.addProperty(type, obPre);
+	CurrentObservation.addProperty(type, obWea);
 }
 
 public  java.util.Calendar getTimeStamp() throws ParseException {
@@ -421,7 +490,7 @@ public Model inferModel(Model m) {
 }
 public String getCalendar() throws IOException, GeneralSecurityException {
 	DateTime now = new DateTime(System.currentTimeMillis());
-	GoogleCredential credential = GoogleCredential.fromStream(new FileInputStream(pathJson.toString()))
+	GoogleCredential credential = GoogleCredential.fromStream(new FileInputStream(pathCredentialCal.toString()))
 .createScoped(Collections.singleton(CalendarScopes.CALENDAR_EVENTS));
 	final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 	Calendar service = new Calendar.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential).setApplicationName(APPLICATION_NAME).build();
@@ -446,5 +515,57 @@ public String getCalendar() throws IOException, GeneralSecurityException {
 
 }
 
+public void deleteTasks() throws FileNotFoundException, IOException, GeneralSecurityException{
+	final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+    Tasks service = new Tasks.Builder(HTTP_TRANSPORT, JSON_FACTORY_TASKS, getCredentials(HTTP_TRANSPORT))
+        .setApplicationName(APPLICATION_NAME_TASKS)
+        .build();
+	System.out.println("a");	
+	long numTasks=10;
+    // Print the first 10 task lists.
+    TaskLists result = service.tasklists().list()
+        .setMaxResults(numTasks)
+        .execute();
+    List<TaskList> taskLists = result.getItems();
+    if (taskLists == null || taskLists.isEmpty()) {
+      System.out.println("No task lists found.");
+    } else {
+      System.out.println("Task lists:");
+      for (TaskList tasklist : taskLists) {
+        System.out.printf("%s (%s)\n", tasklist.getTitle(), tasklist.getId());
+      }
+    }
+}
+public void addTasks(){
 
+}
+	private static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT)
+	throws IOException {
+	// Load client secrets.
+
+	// if (in == null) {
+	// throw new FileNotFoundException("Resource not found: " + pathCredentialTasks);
+	// }
+
+
+	FileInputStream fileInputStream = new FileInputStream(pathCredentialTasks);
+	Scanner scanner = new Scanner(fileInputStream).useDelimiter("\\A");
+
+	String credentialJsoString = scanner.hasNext() ? scanner.next() : "";
+	scanner.close();
+	
+
+	GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY_TASKS, new StringReader(credentialJsoString));
+	// Build flow and trigger user authorization request.
+	
+
+	System.out.println("d");
+	GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+	HTTP_TRANSPORT, JSON_FACTORY_TASKS, clientSecrets, SCOPESTasks)
+	.setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+	.setAccessType("offline")
+	.build();
+	LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
+	return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+	}
 }

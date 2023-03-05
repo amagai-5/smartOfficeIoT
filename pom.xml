@@ -22,6 +22,12 @@
       <artifactId>google-api-services-calendar</artifactId>
       <version>v3-rev355-1.25.0</version>
     </dependency>
+  <!-- https://mvnrepository.com/artifact/com.google.apis/google-api-services-tasks -->
+    <dependency>
+      <groupId>com.google.apis</groupId>
+      <artifactId>google-api-services-tasks</artifactId>
+      <version>v1-rev71-1.25.0</version>
+    </dependency>
 	<dependency>
 	    <groupId>org.apache.jena</groupId>
 	    <artifactId>apache-jena-libs</artifactId>
