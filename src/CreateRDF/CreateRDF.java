@@ -24,6 +24,7 @@ import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -93,6 +94,7 @@ import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.Events;
 import com.google.api.services.tasks.Tasks;
 import com.google.api.services.tasks.TasksScopes;
+import com.google.api.services.tasks.model.Task;
 import com.google.api.services.tasks.model.TaskList;
 import com.google.api.services.tasks.model.TaskLists;
 
@@ -105,14 +107,14 @@ String co2String;
 String tempString;
 String powerString;
 int i = 0;
-
+int counter = 0;
 java.util.Calendar calNow = null;
 java.util.Calendar startCal = null;
 java.util.Calendar endCal = null;
 
 
 boolean flagCo2 = false;
-boolean flagHum = false;
+boolean flagHum = false;	
 boolean flagTem = false;
 boolean flagPow = false;
 boolean flagPre = false;
@@ -125,6 +127,7 @@ String topicTemp = "esp32/temperature";
 String topicPower = "esp32/power";
 String topicAlarm = "java/alarm";
 String topicPlan = "java/plan";
+String topicActuation = "java/actuation";
 String topicWeather = "esp32/weather";
 String topicPresence = "esp32/presence";
 String wd = "https://www.wikidata.org/wiki/";
@@ -137,6 +140,10 @@ String roomStr = "RoomE208";
 String xsd = "http://www.w3.org/2001/XMLSchema#";
 String time = "https://www.w3.org/TR/owl-time/#";
 String planStr = null;
+
+String[] alarmStrArray = {"Window_should_be_CLOSED","Window_should_be_OPEN"};
+String taskID = null;
+String[] windowArray = null;
 
 
 Model m = ModelFactory.createDefaultModel();//create RDF model
@@ -180,19 +187,13 @@ private static final String APPLICATION_NAME = "Google Calendar API";
 private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 static final List<String> SCOPESCalendar = Collections.singletonList(CalendarScopes.CALENDAR_READONLY);
 static Path path = Paths.get("resources").toAbsolutePath().normalize();
-String pathCredentialCal = path.toFile().getAbsolutePath() + "/credentialCalendar.json";
+String pathCredentialCal = path.toFile().getAbsolutePath() + "/credentialCal.json";
 
 private static final String APPLICATION_NAME_TASKS = "Google Tasks API Java Quickstart";
 private static final JsonFactory JSON_FACTORY_TASKS = JacksonFactory.getDefaultInstance();
 private static final String TOKENS_DIRECTORY_PATH = "tokens";
 private static final List<String> SCOPESTasks = Collections.singletonList(TasksScopes.TASKS);
 static String pathCredentialTasks = path.toFile().getAbsolutePath() + "/credentialTasks.json";
-
-
-
-
-
-
 
 
 public CreateRDF() {
@@ -216,7 +217,7 @@ public static void main(String[] args) {
 
 public void doDemo() {
     try {
-        client = new MqttClient("tcp://192.168.1.45:1883", "Sending");
+        client = new MqttClient("tcp://172.20.10.3:1883", "Sending");
         client.connect();
         client.setCallback(this);
         client.subscribe(topicHumid);
@@ -232,6 +233,8 @@ public void doDemo() {
 		room.removeAll(hasEnd);
 		onOffStatus.removeAll(comments);
 		plan.removeAll(type);
+		actuator.removeAll(comments);
+		window.removeAll(comments);
 
     }
     catch (MqttException e) {
@@ -240,12 +243,11 @@ public void doDemo() {
     }
 }
 
-@Override
+
 public void connectionLost(Throwable cause){
     // TODO Auto-generated method stub++
 }
 
-@Override
 public void messageArrived(String topic, MqttMessage message)throws Exception {
 	System.out.println("<--------------------------->");
 	System.out.println(message);
@@ -307,8 +309,9 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 		System.out.println("<--------------------------->");
 		System.out.println(getCalendar());
 		System.out.println("<--------------------------->");
-		createModel(results,i);
-		i++;
+		createModel(results,counter);
+		counter++;
+		System.out.println(counter);
 		
 		m = inferModel(m);
 
@@ -344,7 +347,7 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 			message1.setPayload(statusStr1.getBytes());
 			client.publish(topicPlan, message1);
 			System.out.println("<--------------------------->");
-			System.out.println("--------------pub------------");   	
+			System.out.println("---publish_ON_OFF_Status-----");   	
 			System.out.println("<--------------------------->");
 		}
 
@@ -356,22 +359,51 @@ public void messageArrived(String topic, MqttMessage message)throws Exception {
 			message2.setPayload(statusStr2.getBytes());
 			client.publish(topicAlarm, message2);
 			System.out.println("<--------------------------->");
-			System.out.println("--------------pub------------");   	
+			System.out.println("-------publish_roomState-----");   	
+			System.out.println("<--------------------------->");
+		
+		}
+		
+		
+		NodeIterator actuationIterator = m.listObjectsOfProperty(actuator, comments);	
+		while(actuationIterator.hasNext()){   		
+			RDFNode object3 = actuationIterator.next();
+			String statusStr3 = object3.toString();
+			MqttMessage message3 = new MqttMessage();	
+			message3.setPayload(statusStr3.getBytes());
+			client.publish(topicActuation, message3);
+			System.out.println("<--------------------------->");
+			System.out.println("--------publish_actuation----");   	
 			System.out.println("<--------------------------->");
 		}
 		
-		CurrentObservation.removeProperties();
+		
+		List<String> windowList = new ArrayList<String>();
+		NodeIterator windowIterator = m.listObjectsOfProperty(window, comments);
+		while(windowIterator.hasNext()){   		
+			RDFNode object4 = windowIterator.next();
+			String statusStr4 = object4.toString();
+			System.out.println(statusStr4);
+			windowList.add(statusStr4);
+		}
+		windowArray = windowList.toArray(new String[0]);
+		
+
+		addTasks();
+		
+		CurrentObservation.removeProperties();	
 		m.removeAll(room, comments, null); 
 		m.removeAll(room,hasEnd,null);
 		m.removeAll(room,hasBegin,null);
 		m.removeAll(onOffStatus,comments,null);
 		m.removeAll(plan,type,null);
+		m.removeAll(window,comments,null);
+		m.removeAll(actuator,comments, null);
 		
 	}
 	}
 
 
-@Override
 public void deliveryComplete(IMqttDeliveryToken token) {
     // TODO Auto-generated method stub
 }
@@ -388,7 +420,7 @@ public  void createModel(double[] results, int count) {
 
 
 	room.addProperty(hosts, actuator);
-	room.addLiteral(hosts, window);
+	room.addProperty(hosts, window);
 
 
 
@@ -452,6 +484,8 @@ public  void createModel(double[] results, int count) {
 	CurrentObservation.addProperty(type, obPow);
 	CurrentObservation.addProperty(type, obPre);
 	CurrentObservation.addProperty(type, obWea);
+	
+	i++;
 }
 
 public  java.util.Calendar getTimeStamp() throws ParseException {
@@ -520,52 +554,71 @@ public void deleteTasks() throws FileNotFoundException, IOException, GeneralSecu
     Tasks service = new Tasks.Builder(HTTP_TRANSPORT, JSON_FACTORY_TASKS, getCredentials(HTTP_TRANSPORT))
         .setApplicationName(APPLICATION_NAME_TASKS)
         .build();
-	System.out.println("a");	
-	long numTasks=10;
-    // Print the first 10 task lists.
-    TaskLists result = service.tasklists().list()
-        .setMaxResults(numTasks)
-        .execute();
-    List<TaskList> taskLists = result.getItems();
-    if (taskLists == null || taskLists.isEmpty()) {
-      System.out.println("No task lists found.");
-    } else {
-      System.out.println("Task lists:");
-      for (TaskList tasklist : taskLists) {
-        System.out.printf("%s (%s)\n", tasklist.getTitle(), tasklist.getId());
-      }
-    }
-}
-public void addTasks(){
+	
+	TaskLists taskLists = service.tasklists().list().execute();
+
+	// Loop through the task lists
+	for (TaskList taskList : taskLists.getItems()) {
+	    // Get all the tasks for the current task list
+	    com.google.api.services.tasks.model.Tasks tasks = service.tasks().list(taskList.getId()).execute();
+
+	    // Loop through the tasks and print their names
+	    for (Task task : tasks.getItems()) {
+	        System.out.println(task.getTitle());
+			for (i = 0; i<alarmStrArray.length; i++  ) {
+		        if (task.getTitle().equals(alarmStrArray[i])) {
+		            service.tasks().delete(taskList.getId(), task.getId()).execute();
+		            System.out.println("delete"+ alarmStrArray[i]);
+		        }		
+	        }
+	    }
+	}
+
 
 }
-	private static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT)
+public void addTasks() throws GeneralSecurityException, IOException{
+	final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+	// Build the Tasks service object
+	Tasks service = new Tasks.Builder(HTTP_TRANSPORT, JSON_FACTORY_TASKS, getCredentials(HTTP_TRANSPORT))
+	    .setApplicationName("APPLICATION_NAME_TASKS")
+	    .build();
+	
+	// Get all the task lists
+	TaskLists taskLists = service.tasklists().list().execute();
+
+	// Loop through the task lists and find the task list with the desired name
+	String desiredTaskListName = "マイタスク";
+	String taskListId = null;
+	for (TaskList taskList : taskLists.getItems()) {
+	    if (taskList.getTitle().equals(desiredTaskListName)) {
+	        taskListId = taskList.getId();
+	        break;
+	    }
+	}
+	for (i=0; i<windowArray.length; i++) {
+		Task alarmTask = new Task();
+		alarmTask.setTitle("Window_should_be_" + windowArray[i]);
+		alarmTask = service.tasks().insert(taskListId, alarmTask).execute();
+	}
+	
+
+}
+private static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT)
 	throws IOException {
-	// Load client secrets.
-
-	// if (in == null) {
-	// throw new FileNotFoundException("Resource not found: " + pathCredentialTasks);
-	// }
-
-
-	FileInputStream fileInputStream = new FileInputStream(pathCredentialTasks);
-	Scanner scanner = new Scanner(fileInputStream).useDelimiter("\\A");
-
-	String credentialJsoString = scanner.hasNext() ? scanner.next() : "";
-	scanner.close();
+	    // Load client secrets.
 	
-
-	GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY_TASKS, new StringReader(credentialJsoString));
-	// Build flow and trigger user authorization request.
-	
-
-	System.out.println("d");
-	GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-	HTTP_TRANSPORT, JSON_FACTORY_TASKS, clientSecrets, SCOPESTasks)
-	.setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
-	.setAccessType("offline")
-	.build();
-	LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-	return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+    InputStream in = new FileInputStream(pathCredentialTasks);
+    System.out.print(in);
+    GoogleClientSecrets clientSecrets =
+        GoogleClientSecrets.load(JSON_FACTORY_TASKS, new InputStreamReader(in));
+    
+    // Build flow and trigger user authorization request.
+    GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+        HTTP_TRANSPORT, JSON_FACTORY_TASKS, clientSecrets, SCOPESTasks)
+        .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+        .setAccessType("offline")
+        .build();
+    LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
+    return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
 	}
 }
